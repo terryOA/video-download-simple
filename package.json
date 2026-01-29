@@ -5,3 +5,11 @@
     "yt-dlp-exec": "^2.3.10"
   }
 }
+{
+  "name": "video-download-simple",
+  "version": "1.0.0",
+  "dependencies": {
+    "yt-dlp-exec": "^2.3.10",
+    "@distube/yt-dlp": "^1.0.12" // 新增：预编译的yt-dlp二进制包
+  }
+}
