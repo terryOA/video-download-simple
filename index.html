@@ -535,7 +535,7 @@
             // 输入框变化时检查
             videoUrlInput.addEventListener('input', checkDownloadReady);
             
-            // 下载按钮功能
+                       // 下载按钮功能（真实触发下载）
             downloadBtn.addEventListener('click', () => {
                 const url = videoUrlInput.value.trim();
                 if (!url) return;
@@ -543,15 +543,30 @@
                 downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
                 downloadBtn.disabled = true;
                 
-                // 模拟解析过程
+                // 模拟解析（实际需后端，这里做真实下载触发）
                 setTimeout(() => {
                     showNotification('解析成功！开始下载...');
                     
-                    // 模拟下载过程
+                    // 核心：创建下载链接，触发浏览器下载
                     setTimeout(() => {
+                        // 1. 创建下载用的隐藏链接
+                        const downloadLink = document.createElement('a');
+                        // 2. 设置下载文件名（按选择的画质命名）
+                        const fileName = `视频_${selectedQuality}_${new Date().getTime()}.mp4`;
+                        downloadLink.download = fileName;
+                        // 3. 设置要下载的地址（仅支持.mp4直链，YouTube等链接需后端）
+                        downloadLink.href = url;
+                        
+                        // 4. 触发浏览器下载
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+                        
+                        // 恢复按钮状态
                         downloadBtn.innerHTML = '<i class="fas fa-download"></i> 获取视频';
                         downloadBtn.disabled = false;
-                        showNotification('下载完成！保存到您的设备');
+                        // 提示下载请求已发送
+                        showNotification('下载请求已发送！请查看浏览器下载栏');
                     }, 2000);
                 }, 1500);
             });
@@ -566,8 +581,9 @@
                 }, 3000);
             }
             
-            // 示例链接
-            videoUrlInput.value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+            // 示例链接（换成可直接下载的MP4直链，测试用）
+            videoUrlInput.value = 'https://www.w3school.com.cn/i/movie.mp4';
+            qualityOptions[2].click(); // 默认选择1080p
             qualityOptions[2].click(); // 默认选择1080p
         });
     </script>
