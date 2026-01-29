@@ -180,6 +180,70 @@
             opacity: 0.8;
         }
         
+        /* 新增保存位置样式 */
+        .save-location {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        .save-location h3 {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            color: #e0e0e0;
+        }
+        
+        .location-options {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .location-option {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+        
+        .location-option.selected {
+            border-color: #8e2de2;
+            background: rgba(142, 45, 226, 0.2);
+        }
+        
+        .location-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .custom-path {
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .custom-path.show {
+            display: block;
+        }
+        
+        .custom-path input {
+            width: 100%;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            outline: none;
+        }
+        
+        .custom-path input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
         .download-btn {
             display: block;
             width: 100%;
@@ -302,6 +366,28 @@
             transform: translateX(0);
         }
         
+        /* 进度条样式 */
+        .progress-container {
+            margin-top: 15px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .progress-container.show {
+            display: block;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(to right, #8e2de2, #4a00e0);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+        
         @media (max-width: 768px) {
             h1 {
                 font-size: 2.2rem;
@@ -336,6 +422,10 @@
             .paste-btn {
                 border-radius: 50px;
                 padding: 12px;
+            }
+            
+            .location-options {
+                flex-direction: column;
             }
         }
     </style>
@@ -413,6 +503,30 @@
                     </div>
                 </div>
                 
+                <!-- 新增保存位置选择 -->
+                <div class="save-location">
+                    <h3><i class="fas fa-folder-open"></i> 选择保存位置</h3>
+                    <div class="location-options">
+                        <div class="location-option selected" data-location="default">
+                            <i class="fas fa-download"></i> 默认下载文件夹
+                        </div>
+                        <div class="location-option" data-location="desktop">
+                            <i class="fas fa-desktop"></i> 桌面
+                        </div>
+                        <div class="location-option" data-location="custom">
+                            <i class="fas fa-path"></i> 自定义路径
+                        </div>
+                    </div>
+                    <div class="custom-path" id="customPathInput">
+                        <input type="text" placeholder="输入自定义保存路径 (例如: D:/Videos/下载)">
+                    </div>
+                </div>
+                
+                <!-- 下载进度条 -->
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                
                 <button class="download-btn" id="downloadBtn" disabled>
                     <i class="fas fa-download"></i> 获取视频
                 </button>
@@ -438,15 +552,15 @@
                     <div class="step">
                         <div class="step-number">3</div>
                         <div class="step-content">
-                            <h3>选择下载画质</h3>
-                            <p>选择您需要的视频分辨率（某些视频需要先解析）</p>
+                            <h3>选择下载画质和保存位置</h3>
+                            <p>选择您需要的视频分辨率和文件保存位置（某些视频需要先解析）</p>
                         </div>
                     </div>
                     <div class="step">
                         <div class="step-number">4</div>
                         <div class="step-content">
                             <h3>下载视频/音频</h3>
-                            <p>点击「获取视频」按钮，预下载后会自动开始下载</p>
+                            <p>点击「获取视频」按钮，解析完成后会自动下载到指定位置</p>
                         </div>
                     </div>
                 </div>
@@ -498,8 +612,17 @@
             const downloadBtn = document.getElementById('downloadBtn');
             const qualityOptions = document.querySelectorAll('.quality-option');
             const notification = document.getElementById('notification');
+            const locationOptions = document.querySelectorAll('.location-option');
+            const customPathInput = document.getElementById('customPathInput');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
             
             let selectedQuality = null;
+            let selectedLocation = 'default';
+            let customPath = '';
+            
+            // Vercel API 配置（请替换为你的实际API地址）
+            const VERCEL_API_URL = 'https://your-vercel-api.vercel.app/api/download-video';
             
             // 粘贴按钮功能
             pasteBtn.addEventListener('click', async () => {
@@ -523,37 +646,115 @@
                 });
             });
             
+            // 保存位置选择
+            locationOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    locationOptions.forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                    selectedLocation = option.dataset.location;
+                    
+                    // 显示/隐藏自定义路径输入框
+                    if (selectedLocation === 'custom') {
+                        customPathInput.classList.add('show');
+                        customPathInput.querySelector('input').addEventListener('input', function() {
+                            customPath = this.value.trim();
+                        });
+                    } else {
+                        customPathInput.classList.remove('show');
+                        customPath = '';
+                    }
+                });
+            });
+            
             // 检查是否可以下载
             function checkDownloadReady() {
-                if (videoUrlInput.value.trim() !== '' && selectedQuality) {
-                    downloadBtn.disabled = false;
-                } else {
-                    downloadBtn.disabled = true;
-                }
+                const hasUrl = videoUrlInput.value.trim() !== '';
+                const hasQuality = !!selectedQuality;
+                const hasValidCustomPath = selectedLocation !== 'custom' || (selectedLocation === 'custom' && customPath);
+                
+                downloadBtn.disabled = !(hasUrl && hasQuality && hasValidCustomPath);
             }
             
             // 输入框变化时检查
             videoUrlInput.addEventListener('input', checkDownloadReady);
             
+            // 更新下载进度
+            function updateProgress(percent) {
+                progressContainer.classList.add('show');
+                progressBar.style.width = `${percent}%`;
+                
+                if (percent === 100) {
+                    setTimeout(() => {
+                        progressContainer.classList.remove('show');
+                        progressBar.style.width = '0%';
+                    }, 1000);
+                }
+            }
+            
+            // 调用Vercel API下载视频
+            async function downloadVideoViaAPI(url, quality, location, customPath) {
+                try {
+                    // 显示解析中状态
+                    downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
+                    downloadBtn.disabled = true;
+                    updateProgress(10);
+                    
+                    // 调用Vercel API
+                    const response = await fetch(VERCEL_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            url: url,
+                            quality: quality,
+                            saveLocation: location,
+                            customPath: customPath || ''
+                        })
+                    });
+                    
+                    updateProgress(40);
+                    
+                    if (!response.ok) {
+                        throw new Error(`API请求失败: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    updateProgress(70);
+                    
+                    if (data.success) {
+                        // 模拟下载进度
+                        let progress = 70;
+                        const progressInterval = setInterval(() => {
+                            progress += 5;
+                            updateProgress(progress);
+                            
+                            if (progress >= 100) {
+                                clearInterval(progressInterval);
+                                showNotification(`视频已保存到: ${data.savePath || '默认下载文件夹'}`);
+                                downloadBtn.innerHTML = '<i class="fas fa-download"></i> 获取视频';
+                                downloadBtn.disabled = false;
+                            }
+                        }, 200);
+                    } else {
+                        throw new Error(data.message || '解析视频失败');
+                    }
+                    
+                } catch (error) {
+                    showNotification(`下载失败: ${error.message}`);
+                    downloadBtn.innerHTML = '<i class="fas fa-download"></i> 获取视频';
+                    downloadBtn.disabled = false;
+                    updateProgress(0);
+                }
+            }
+            
             // 下载按钮功能
             downloadBtn.addEventListener('click', () => {
                 const url = videoUrlInput.value.trim();
-                if (!url) return;
+                if (!url || !selectedQuality) return;
                 
-                downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 解析中...';
-                downloadBtn.disabled = true;
-                
-                // 模拟解析过程
-                setTimeout(() => {
-                    showNotification('解析成功！开始下载...');
-                    
-                    // 模拟下载过程
-                    setTimeout(() => {
-                        downloadBtn.innerHTML = '<i class="fas fa-download"></i> 获取视频';
-                        downloadBtn.disabled = false;
-                        showNotification('下载完成！保存到您的设备');
-                    }, 2000);
-                }, 1500);
+                // 调用API下载视频
+                downloadVideoViaAPI(url, selectedQuality, selectedLocation, customPath);
             });
             
             // 显示通知
@@ -566,9 +767,18 @@
                 }, 3000);
             }
             
-            // 示例链接
+            // 示例链接和默认选择
             videoUrlInput.value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
             qualityOptions[2].click(); // 默认选择1080p
+            
+            // 监听自定义路径输入变化
+            const customPathField = customPathInput.querySelector('input');
+            if (customPathField) {
+                customPathField.addEventListener('input', function() {
+                    customPath = this.value.trim();
+                    checkDownloadReady();
+                });
+            }
         });
     </script>
 </body>
