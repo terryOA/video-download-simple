@@ -1,0 +1,7 @@
+{
+  "name": "video-downloader",
+  "version": "1.0.0",
+  "dependencies": {
+    "yt-dlp-exec": "^2.3.10"
+  }
+}
